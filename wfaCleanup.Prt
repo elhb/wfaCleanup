@@ -647,10 +647,10 @@ EndFor
 GoHome
 
 (5-3-1)[PauseToAddReagents]
-BeginInfoBox "Pauses to place reagents." 1
-  Label "Byt till ultrarent MilliQ" c
-EndInfoBox
-AddToLogfile "Operator confirmed byte av H2O"
+;BeginInfoBox "Pauses to place reagents." 1
+;  Label "Byt till ultrarent MilliQ" c
+;EndInfoBox
+;AddToLogfile "Operator confirmed byte av H2O"
 
 (5-4-1)[Bead Regeneration]
 
@@ -728,9 +728,9 @@ ELSE
 ENDIF
 
 (5-8-1)[WashTips]
-Sval STR1 Let !TE(WashContainerAlias)
-Gval Tempo Let !10(NumberOfIntipMixes)
-Call TipWashRoutine
+;Sval STR1 Let !TE(WashContainerAlias)
+;Gval Tempo Let !10(NumberOfIntipMixes)
+;Call TipWashRoutine
 
 (5-9-1)[Loop WhileBeadCapture]
 Amove Z 0
@@ -905,9 +905,9 @@ Org Z W
 Rmove P $PreAirAsp
 
 (5-16-1)[WashTips]
-Sval STR1 Let !TE(WashContainerAlias)
-Gval Tempo Let !10(NumberOfIntipMixes)
-Call TipWashRoutine
+;Sval STR1 Let !TE(WashContainerAlias)
+;Gval Tempo Let !10(NumberOfIntipMixes)
+;Call TipWashRoutine
 
 (5-17-1)[Loop WhileBeadRemoval]
 GVal tmpGCount INC
