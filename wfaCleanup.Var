@@ -30,7 +30,7 @@ ValidMax=1
 Type=String
 Description=Sample Volume (µl)
 VariableName=SAMPLEvol
-DefaultValue=10
+DefaultValue=50
 ValidMin=10
 ValidMax=100
 
@@ -147,7 +147,7 @@ ValidMin=10
 ValidMax=30
 
 [S6.2]
-Type=String
+Type=Hidden
 Description=Neutralisation (HCl) and 10*Annealing Buffer Volume (µl)
 VariableName=HClvol
 DefaultValue=9
