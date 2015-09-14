@@ -1,0 +1,7 @@
+[Protocol]
+Title=WFAcleanup
+ConfigFile=..\Protocols\WfaCleanup\wfaCleanup.Cfg
+Script=..\Protocols\WfaCleanup\wfaCleanup.Prt
+Prologue=..\Protocols\WfaCleanup\wfaCleanup.Plg
+VarFile=..\Protocols\WfaCleanup\wfaCleanup.Var
+General=..\Protocols\WfaCleanup\wfaCleanup.GEN

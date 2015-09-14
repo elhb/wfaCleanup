@@ -1,0 +1,1151 @@
+(1-1-1)[EditorNotes]
+; 010930, Anders Holmberg
+;
+; 020324, Anders Holmberg
+; Fixed "GetBeads2- bug" 
+; Fixed conflict of "tip discard" when run in debug mode.
+; Added Sub-Routine Page
+; 020426, Anders Holmberg
+; Unification continues.
+; 021108, Max Käller
+; Took away the step where the samples are moved to a pyro-plate.
+; 021113, Max Käller
+; AMASE v2
+; 030630, Max Käller
+; AMASE v5
+;030825, Max Käller
+; AMASE v6 
+; 
+AddToLogfile "****************************************"
+AddToLogFile "* Last Edition 030630                  *"
+AddToLogfile "****************************************"
+AddToLogfile "* Magnatrix AMASE - M1200     *"
+AddToLogfile "****************************************"
+AddToLogFile "* FileName: AMASE6.prt                 *"
+AddToLogfile "****************************************"
+AddToLogFile 
+
+(1-2-1)[Start Protocol Timer]
+AddToLogFile "*************************"
+AddToLogFile "******** Starting *******"
+AddToLogFile "*************************"
+AddToLogFile 
+Gval STARTING Let @SECONDCOUNT
+RunMessage "Initiating Hardware"
+
+(1-2-2)[SetPlateVolume]
+SetPlateVolume BEADS $TotBeadvol 
+SetPlateVolume SAMPLES $SampleVol
+SetPlateVolume Heat 0
+SetPlateVolume HeatPraise 0
+SetPlateVolume Ligasbuffert  55
+SetPlateVolume FinishedSamples 0
+SetPlateVolume Anneal 55
+
+(1-3-1)[Org Pos]
+Org Z W
+Org M W
+Org X W
+Org Y W
+MoveTo DRAIN
+ActionZ #Z_SPEED_H
+Org P W
+
+(1-3-2)[Tip Discard]
+MoveTo DRAIN
+SelectTip Standard
+TipOff
+
+(1-4-1)[SetInitTemp]
+_SetTemp  1  $InitTemp
+
+(1-5-1)[New Tip Collect]
+GetNewTip Standard
+Amove P 0 W
+Org P W
+
+(1-5-2)[PreAsp]
+Amove P !2000(Pulses)
+
+(2-1-1)[* BeadDispPage *]
+AddToLogFile "Starting Bead Storage Buffer Removal"
+RunMessage "Bead Storage Buffer Exchange"
+
+(2-2-1)[GoBeads]
+MoveTo Beads
+
+(2-2-2)[Action Z]
+ActionZ !#Z_SPEED_H(Speed)
+
+(2-2-3)[StirUpBeads]
+Gval TEMPO Let @WellVolume
+Gval TEMPO Mul !0.7(Vol%2Mix)
+IF $TEMPO GT $BeadMixVol
+   Gval TEMPO Let $BeadMixVol
+EndIf
+LiqIn $TEMPO #P_SPEED_H
+Rmove Z -200
+LiqOut $TEMPO #P_SPEED_H
+Rmove Z 200
+Do !10(Mixes2StirUp)
+  WaitMsec #MIX_DELAY1
+  LiqIn $TEMPO #P_SPEED_H
+  WaitMsec #MIX_DELAY2
+  LiqOut $TEMPO #P_SPEED_H
+LOOP
+
+(2-3-1)[MagDownH]
+Amove M !#BF_MAG_H(Strength)
+
+(2-4-1)[GetAllBeads]
+RunMessage "Aspirating All Beads"
+Gval Tempo Let 999
+Gval Reps2Do New
+Gval AspVol New
+Gval Reps2Do Let $TotBEADvol
+Gval Reps2Do \ $BeadMixVol
+IF $Reps2Do EQ 0
+  Gval AspVol Let $TotBEADvol
+  Gval Reps2Do Let 1
+  Gval Tempo Let 0
+ELSE
+  Gval AspVol Let $BeadMixVol
+ENDIF
+;WhileLiquid
+DO $Reps2Do
+  MoveTo    Beads
+  ActionZ   #Z_SPEED_H
+  rScanZ    #del_Scan_Z  #Z_SPEED_L
+  DelMove   Z !#Z_DELUP_L(MoveUp) W
+  LiqInWell $AspVol #P_SPEED_MH
+  MoveTo    Drain
+  ActionZ #Z_SPEED_H
+  LiqIn     #V_MAG_PASS #P_SPEED_L
+  WaitSec   !4(MagDelay)
+  LiqOutAll #P_SPEED_L
+  WaitMsec  500
+  LiqOut    @TipVolume #P_SPEED_M
+  WaitMsec  500
+  Rmove P $PreAirDisp
+  SideY%   -100 #Y_SPEED_H
+  Amove     Z 0 W
+  Org       Z W
+  Rmove P $PreAirAsp
+LOOP
+IF $Tempo EQ 0
+  Goto ;Done
+ENDIF
+Gval Tempo Let $AspVol
+Gval Tempo Mul $Reps2Do
+Gval AspVol Let $TotBEADvol
+Gval AspVol Sub $Tempo
+IfGoto EQ 0 ;Done
+Gval Reps2Do Let 1
+Gval Tempo Let 0
+Goto ;WhileLiquid
+;Done
+
+(2-5-1)[MagUp]
+Amove M 0
+
+(2-6-1)[AspBindBUF]
+RunMessage "Adding Binding Buffer"
+Gval Tempo Let 999
+Gval Reps2Do New
+Gval AspVol New
+Gval Reps2Do Let $BindBUFvol
+Addtologfile "DEBUG: Buffertvol att resusp kulor i" $BindBUFvol
+Gval Reps2Do \ $BeadMixVol
+IF $Reps2Do EQ 0
+  Gval AspVol Let $BindBUFvol
+  Gval Tempo Let 0
+  Gval Reps2Do Let 1
+ELSE
+  Gval AspVol Let $BeadMixVol
+ENDIF
+;WhileLiquid
+DO $Reps2Do
+  MoveTo BW
+  ActionZ   #Z_SPEED_H
+  LiqInWell $AspVol #P_SPEED_H
+  Down% 50 #Z_SPEED_M
+  SideY% 70 #Y_SPEED_M
+  Down% 10 #Z_SPEED_L
+  SideY% -90 #Y_SPEED_M
+  MoveTo    Beads
+  ActionZ #Z_SPEED_H
+  LiqOutAll #P_SPEED_M
+LOOP
+IF $Tempo EQ 0
+  Goto ;Done
+ENDIF
+Gval Tempo Let $AspVol
+Gval Tempo Mul $Reps2Do
+Gval AspVol Let $BindBUFvol
+Gval AspVol Sub $Tempo
+IfGoto EQ 0 ;Done
+Gval Reps2Do Let 1
+Gval Tempo Let 0
+Goto ;WhileLiquid
+;Done
+
+(2-7-1)[BindBuffMix]
+;The volume to aspirate is TEMPO
+;The volume to mix with is TEMPO1
+Gval TEMPO Let !@WellVolume(VolumeInTube)
+If $TEMPO GT $WASHvol
+   Gval TEMPO Let $WASHvol
+EndIf
+LiqInWell $TEMPO #P_SPEED_M
+Down% !10(InTipMixPosition) #Z_SPEED_H
+Gval TEMPO1 Let $TEMPO
+Gval TEMPO1 Add 15
+If $TEMPO1 GT #V_MAG_PASS
+  Gval TEMPO1 Let #V_MAG_PASS
+  Gval TEMPO1 Sub 2
+EndIf
+LiqIn #V_MAG_PASS #P_SPEED_M
+Gval TEMPO2 Let $BEADvol
+Gval TEMPO2 Add 5
+If $TEMPO2 LT 15
+  Gval TEMPO2 Let 15
+EndIf
+Do !$TEMPO2(NumberOfInTipMixes)
+  WaitMsec #MIX_DELAY2
+  LiqOut   $TEMPO1   #P_SPEED_M
+  WaitMsec #MIX_DELAY1
+  LiqIn    $TEMPO1   #P_SPEED_H
+LOOP
+LiqOut #V_MAG_PASS #P_SPEED_L
+ActionZ #Z_SPEED_H
+LiqOutWell% 80 #P_SPEED_M
+WaitSec 1
+LiqOutAll #P_SPEED_H
+LiqOut @TipVolume #P_SPEED_H
+
+(2-7-2)[Action Z]
+ActionZ !#Z_SPEED_H(Speed)
+
+(2-7-3)[StirUpBeads2]
+Gval TEMPO Let @WellVolume
+Gval TEMPO Mul !0.8(Vol%2Mix)
+IF $TEMPO GT $BeadMixVol
+   Gval TEMPO Let $BeadMixVol
+EndIf
+Gval TEMPO1 Let $BEADvol
+Gval TEMPO1 Add 5
+If $TEMPO1 LT 15
+  Gval TEMPO1 Let 15
+EndIf
+Do $TEMPO1
+  WaitMsec #MIX_DELAY1
+  LiqIn $TEMPO #P_SPEED_M
+  WaitMsec #MIX_DELAY2
+  LiqOut $TEMPO #P_SPEED_H
+LOOP
+LiqIn $TEMPO #P_SPEED_M
+LiqOut $TEMPO #P_SPEED_L
+Rmove Z -200
+WaitSec 1
+Rmove P $PreAirDisp
+Amove Z 0 W
+Org Z W
+Rmove P $PreAirAsp
+
+(2-8-1)[Init Counter]
+GVAL tmpGCount Let 1
+AddToLogFile "Dispensing Beads to Samples"
+
+(2-8-2)[WhileBeads]
+RunMessage "Dispensing Beads to Sample" $tmpGCount
+
+(2-9-1)[GoBeads]
+MoveTo Beads
+
+(2-9-2)[GoBottomM]
+ActionZ  #Z_SPEED_H
+rScanZ   #del_Scan_Z #Z_SPEED_L
+DelMove Z #Z_DELUP_M
+
+(2-9-3)[BeadAsp]
+LiqInWell $BEADBuffvol !#P_SPEED_M(AspSpeed)
+Addtologfile "DEBUG: Kulvol till prov" $BEADBuffvol 
+WaitMsec 250
+Down% 10 #Z_SPEED_M
+SideY% -90 #Y_SPEED_M
+Amove Z 0 W
+
+(2-10-1)[GoSamples]
+MoveTo Samples $tmpGCount
+
+(2-10-2)[GoDown%]
+Down% !90(%Down) #Z_SPEED_H
+
+(2-10-3)[DispBead]
+LiqOutWell% 70 #P_SPEED_M
+WaitMsec 200
+LiqOutAll #P_SPEED_H
+
+(2-10-4)[EmptyTipAndTipTouch]
+Down% !80(%DownInWell) #Z_SPEED_H
+WaitMsec  250
+Rmove P $PreAirDisp
+Down% 10 #Z_SPEED_H
+SideY% 90 #Y_SPEED_H
+SideY% -90 #Y_SPEED_H
+Amove Z 0 W
+Org Z W
+Rmove P $PreAirAsp
+Addtologfile "DEBUG: Totalvoll prov+kulor" @wellvolume
+
+(2-10-5)[WashTips]
+;Sval STR1 Let !TE(WashContainerAlias)
+;Gval Tempo Let !5(NumberOfIntipMixes)
+;Call TipWashRoutine
+
+(2-11-1)[Loop WhileBeads]
+GVal tmpGCount INC
+If $tmpGCount LE $SMPL2Do
+  GoBack WhileBeads
+EndIf
+
+(3-1-1)[* Incubation Page *]
+AddToLogFile "Starting Incubation"
+
+(3-2-1)[InitTimer&Count]
+StartWatch 1
+Gval MIXcount LET 0
+
+(3-2-2)[PreAsp]
+Amove P !2000(Pulses)
+
+(3-3-1)[WhileIncubating]
+;LOOP start
+Gval MIXcount Add 1
+RunMessage "Mix Number" $MIXcount "Started"
+
+(3-4-1)[Init Counter]
+GVal tmpGCount Let 1
+
+(3-4-2)[WhileMixes]
+;WhileLoopLabel
+
+(3-5-1)[GoSamples]
+MoveTo Samples $tmpGCount
+
+(3-5-2)[Action Z]
+ActionZ !#Z_SPEED_H(Speed)
+
+(3-5-3)[BindMix]
+Gval TEMPO Let @WellVolume
+Gval TEMPO Mul !0.7(Vol%2Mix)
+IF $TEMPO GT $BeadMixVol
+   Gval TEMPO Let $BeadMixVol
+EndIf
+Do !7(Mixes)
+  WaitMsec #MIX_DELAY1
+  LiqIn $TEMPO #P_SPEED_M
+  WaitMsec #MIX_DELAY2
+  LiqOut $TEMPO #P_SPEED_H
+LOOP
+LiqIn $TEMPO #P_SPEED_M
+LiqOut $TEMPO !#P_SPEED_LL(CleanTipSpeed)
+
+(3-5-4)[EmptyTip]
+Down% 70 #Z_SPEED_H
+WaitSec !1(Time2Wait)
+Rmove P $PreAirDisp
+Down% 10 #Z_SPEED_H
+Sidey% 100 #Y_SPEED_H
+Sidey% -100 #Y_SPEED_H
+WaitMsec !250(TipTouchWait)
+Sidey% 0 #Y_SPEED_H
+Amove Z 0 W
+Org Z
+Rmove P $PreAirAsp
+
+(3-5-5)[WashTips]
+;Sval STR1 Let !TE(WashContainerAlias)
+;Gval Tempo Let !5(NumberOfIntipMixes)
+;Call TipWashRoutine
+
+(3-6-1)[Loop WhileMixes]
+GVal tmpGCount INC
+TestCondition $tmpGCount LE $SMPL2do
+IfGoto LE 0 ;Exit
+GoBack WhileMixes
+;Exit
+GoHome
+
+(3-7-1)[LoopWhileIncubating]
+Gval TotIncTime Let !$BEADIncTime(TotalIncTime)
+Gval TEMPO Let $TotIncTime
+Gval TEMPO Div 3
+Gval MIXtime1 Let $TEMPO
+Gval TEMPO Mul 2
+Gval MIXtime2 Let $TEMPO
+PassTime 1
+IfGoto GT $TotIncTime ;DoneMixing
+PassTime 1
+IfGoto LE $MIXtime1 ;FirstMix
+PassTime 1
+IfGoto LE $MIXtime2 ;SecondMix
+;Finalwait
+Sleep 1
+PassTime 1
+Gval Tempo1 Let @RESULT
+IfGoto GE $TotIncTime ;DoneMixing
+Gval Tempo1 Sub $TotIncTime
+Gval Tempo1 \ -1
+RunMessage "Waiting for Incubation to Finish," $Tempo1 "Seconds Left"
+Goto ;Finalwait
+;FirstMix
+Sleep 1
+PassTime 1
+Gval Tempo1 Let @RESULT
+IfGoto GE $MIXtime1 ;MixAgain
+Gval Tempo1 Sub $MIXtime1
+Gval Tempo1 \ -1
+RunMessage "Waiting to Start Next Mix," $Tempo1 "Seconds Left"
+Goto ;FirstMix
+;SecondMix
+Sleep 1
+PassTime 1
+Gval Tempo1 Let @RESULT
+IfGoto GE $MIXtime2 ;MixAgain
+Gval Tempo1 Sub $MIXtime2
+Gval Tempo1 \ -1
+RunMessage "Waiting to Start Next Mix," $Tempo1 "Seconds Left"
+Goto ;SecondMix
+;MixAgain
+GoBack WhileIncubating
+;DoneMixing
+Gval MIXcount Let 0
+AddToLogFile "Finished Incubation"
+
+(4-1-1)[* DNA Strand Elution *]
+
+
+(4-2-1)[Init Counter]
+GVAL tmpGCount LET 1
+
+(4-2-2)[WhileDNAElution]
+;WhileLoopLabel
+
+(4-3-1)[PreAsp]
+Amove P !2000(Pulses) W
+
+(4-4-1)[Capture Part]
+RunMessage "Bead Capture Started, Sample" $tmpGCount
+AddToLogfile "Bead Capture Started, Sample" $tmpGCount
+
+(4-5-1)[GoSamples]
+MoveTo Samples $tmpGCount
+
+(4-5-2)[Action Z]
+ActionZ !#Z_SPEED_H(Speed)
+
+(4-5-3)[PreMixing]
+Gval TEMPO Let @WellVolume
+Gval TEMPO Mul !0.7(Vol%2Mix)
+IF $TEMPO GT $BeadMixVol
+   Gval TEMPO Let $BeadMixVol
+EndIf
+Do !7(Mixes)
+  WaitMsec #MIX_DELAY1
+  LiqIn $TEMPO #P_SPEED_H
+  WaitMsec #MIX_DELAY2
+  LiqOut $TEMPO #P_SPEED_H
+LOOP
+
+(4-6-1)[GetBeads1]
+Gval TEMPO Let !@WellVolume(VolumeInWell)
+Gval TEMPO1 Let $TEMPO
+; Tempo is 90% of the volume.
+Gval TEMPO Mul 0.9
+; Tempo1 is 10% of the volume.
+Gval TEMPO1 Sub $TEMPO
+Amove M #BF_MAG_M
+LiqIn $TEMPO #P_SPEED_M
+WaitMsec 250
+ActionZ #Z_SPEED_H
+rScanZ #DEL_SCAN_Z  #Z_SPEED_LL
+DelMove Z !#Z_DELUP_L(Moveup)  W
+LiqIn $TEMPO1 #P_SPEED_L
+ActionZ !#Z_SPEED_H(Speed)
+LiqIn #V_MAG_PASS #P_SPEED_L
+WaitMsec 500
+LiqOut $TEMPO #P_SPEED_L
+LiqOut $TEMPO1 #P_SPEED_L
+LiqOut #V_MAG_PASS #P_SPEED_M
+
+(4-6-2)[ReMix]
+Gval TEMPO Let @WellVolume
+Gval TEMPO Mul !0.7(Vol%2Mix)
+IF $TEMPO GT 30
+   Gval TEMPO Let 30
+EndIf
+Do !5(Mixes)
+  WaitMsec #MIX_DELAY1
+  LiqIn $Tempo #P_SPEED_M
+  WaitMsec #MIX_DELAY2
+  LiqOut $Tempo #P_SPEED_H
+LOOP
+Amove M 0
+
+(4-6-3)[GoBottomL]
+ActionZ   #Z_SPEED_H
+rScanZ    #DEL_SCAN_Z  #Z_SPEED_LL
+DelMove  Z !#Z_DELUP_L(Moveup)  W
+
+(4-6-4)[GetBeads2]
+Gval TEMPO Let !@WellVolume(VolumeInWell)
+Gval TEMPO1 Let $TEMPO
+; Make Tempo 90% of the total volume.
+Gval TEMPO Mul 0.9
+; Tempo1 is 10% of the volume.
+Gval TEMPO1 Sub $TEMPO
+Amove M #BF_MAG_M
+LiqIn $TEMPO #P_SPEED_L
+WaitMsec 250
+ActionZ #Z_SPEED_H
+rScanZ #DEL_SCAN_Z  #Z_SPEED_LL
+DelMove Z !#Z_DELUP_L(Moveup)  W
+LiqIn $TEMPO1 #P_SPEED_L
+DelMove Z 100 #Z_SPEED_L
+LiqIn $XtraDisp #P_SPEED_L
+ DO 10
+  DelMove Z -20 #Z_SPEED_H
+  WaitMsec 50
+LOOP
+ActionZ #Z_SPEED_H
+LiqIn #V_MAG_PASS #P_SPEED_L
+WaitSec 1
+LiqOut #V_MAG_PASS #P_SPEED_LL
+LiqOut $TEMPO #P_SPEED_LL
+LiqOut $TEMPO1 #P_SPEED_L
+LiqOut $XtraDisp #P_SPEED_H
+Down% 10 #Z_SPEED_H
+SideY% -95  #Y_SPEED_M
+Rmove P $PreAirDisp
+Amove M 0
+Amove Z 0 W
+Rmove P $PreAirAsp
+Org Z W
+Org M W
+
+(4-7-1)[*New SpecialWash*]
+
+
+(4-8-1)[WashBoundDNA]
+Sval STR1 Let !BW(WashContainerAlias)
+Gval Tempo Let  !2(Times2Wash) 
+Gval Tempo1 Let !15(InTipMixes)
+For NumberOfWashes 1 $Tempo 1
+   Call WashRoutine
+EndFor
+
+(4-9-1)[WashBoundDNA]
+Sval STR1 Let !TE(WashContainerAlias)
+Gval Tempo Let  !1(Times2Wash) 
+Gval Tempo1 Let !15(InTipMixes)
+For NumberOfWashes 1 $Tempo 1
+   Call WashRoutine
+EndFor
+
+(4-10-1)[WashBoundDNA]
+Sval STR1 Let !RG(WashContainerAlias)
+Gval Tempo Let  !2(Times2Wash) 
+Gval Tempo1 Let !15(InTipMixes)
+For NumberOfWashes 1 $Tempo 1
+   Call WashRoutine
+EndFor
+
+(4-11-1)[WashBoundDNA]
+Sval STR1 Let !NaOH(WashContainerAlias)
+Gval Tempo Let  !4(Times2Wash) 
+Gval Tempo1 Let !15(InTipMixes)
+For NumberOfWashes 1 $Tempo 1
+   Call WashRoutine
+EndFor
+
+(4-12-1)[Elution Part]
+RunMessage "DNA Strand Elution, Sample" $tmpGCount
+AddToLogfile "DNA Strand Elution, Sample" $tmpGCount
+
+(4-13-1)[GoElution]
+MoveTo NaOH 1
+
+(4-13-2)[Action Z]
+ActionZ !#Z_SPEED_H(Speed)
+
+(4-13-3)[EluteAsp]
+LiqInWell $ELUTEvol #P_SPEED_H
+
+(4-14-1)[GoDrain]
+MoveTo DRAIN 1
+ActionZ #Z_SPEED_H
+
+(4-14-2)[StartTimerEluteInc]
+;IF $tmpGCount GT 1
+;   Gval ELUTEinc ADD $TimeIncrease
+; ENDIF
+StartWatch 2
+
+(4-14-3)[EluteInTip]
+Gval TEMPO Let !$ELUTEvol(VolInTip)
+Gval TEMPO Add 15
+Val $TEMPO
+IfGoto LT #V_MAG_PASS ;preasp
+Gval TEMPO Let #V_MAG_PASS
+Gval TEMPO Sub 2
+;preasp
+LiqIn #V_MAG_PASS #P_SPEED_M
+;mixup
+  WaitMsec #MIX_DELAY2
+  LiqOut   $TEMPO   #P_SPEED_MH
+  WaitMsec #MIX_DELAY1
+  LiqIn    $TEMPO   #P_SPEED_MH
+PassTime 2
+IfGoto GT $ELUTEinc ;IncDone
+GoTo ;mixup
+;IncDone
+PassTime 2
+LiqOut #V_MAG_PASS #P_SPEED_M
+Amove M #BF_MAG_M
+LiqIn    #V_MAG_PASS #P_SPEED_L
+WaitSec 2
+LiqOut #V_MAG_PASS #P_SPEED_L
+LiqOutWell% 70 #P_SPEED_LL
+WaitMsec 500
+LiqOutAll #P_SPEED_LL
+LiqOut @TipVolume #P_SPEED_H
+WaitMsec 300
+Rmove P $PreAirDisp
+
+(4-14-4)[TipTouchAndAsp]
+SideY% -100 #Y_SPEED_H
+Amove Z 0 W
+Org Z
+Rmove P $PreAirAsp
+
+(4-14-5)[MagUp]
+Amove M 0
+Org M
+
+(4-14-6)[RunMessage]
+RunMessage "Washing After Strand Elution, Sample" $tmpGCount
+
+(5-1-1)[WashBeads]
+Sval STR1 Let !TE(WashContainerAlias)
+Gval Tempo Let  !2(Times2Wash) 
+For NumberOfWashes 1 $Tempo 1
+   Call WashRoutine
+EndFor
+
+(5-2-1)[GoHome]
+GoHome
+
+(5-3-1)[PauseToAddReagents]
+BeginInfoBox "Pauses to place reagents." 1
+  Label "Byt till ultrarent MilliQ" c
+EndInfoBox
+AddToLogfile "Operator confirmed byte av H2O"
+
+(5-4-1)[Bead Regeneration]
+
+
+(5-5-1)[GoRemoveBuffer]
+RunMessage "Resuspending Row" $tmpGCount "in Regeneration Buffer"
+AddTologfile "Resuspending Row" $tmpGCount "in Regeneration Buffer"
+MoveTo RG 1
+
+(5-5-2)[Action Z]
+ActionZ !#Z_SPEED_H(Speed)
+
+(5-5-3)[AspRemoveBuffer]
+LiqInWell $BEADREMvol #P_SPEED_H
+
+(5-6-1)[GoRegenerering]
+MoveTo Regenerering $tmpGCount
+
+(5-6-2)[Action Z]
+ActionZ !#Z_SPEED_H(Speed)
+
+(5-6-3)[ResuspInTip]
+Gval TEMPO Let !$BEADREMvol(VolInTip)
+Gval TEMPO Add 15
+If $TEMPO GT #V_MAG_PASS
+Gval TEMPO Let #V_MAG_PASS
+Gval TEMPO Sub 2
+EndIf
+LiqIn #V_MAG_PASS #P_SPEED_H
+Gval TEMPO1 Let $BEADvol
+Gval TEMPO1 Add 5
+If $TEMPO1 LT 15
+  Gval TEMPO1 Let 15
+EndIf
+Do !$TEMPO1(Mixes2StirUp)
+  WaitMsec #MIX_DELAY2
+  LiqOut   $TEMPO   #P_SPEED_H
+  WaitMsec #MIX_DELAY1
+  LiqIn    $TEMPO   #P_SPEED_H
+LOOP
+LiqOut #V_MAG_PASS 700
+
+(5-6-4)[DispRemoveBuffer]
+LiqOutWell% 80 #P_SPEED_LL
+Down% !85(%Down) #Z_SPEED_H
+WaitMsec 500
+LiqOutAll #P_SPEED_LL
+WaitMsec 300
+Rmove P $PreAirDisp
+Amove Z 0 W
+Rmove P $PreAirAsp
+Org Z W
+
+(5-7-1)[Start Heating?]
+IF $tmpGCount EQ $SMPL2Do
+;Last Sample
+  IF $BeadRemTemp GT $InitTemp
+    AddToLogFile "Heating to Dissociation Temperature."
+    _SetTemp 1 $BeadRemTemp
+  ENDIF
+ELSE
+  GVAL tmpGCount Inc
+  IF $tmpGCount EQ $SMPL2Do ; Next Last Row
+    Gval Tempo Let $BeadRemTemp
+    Gval Tempo Sub !20(Deg From Temp)
+    IF $Tempo GT 65
+      Gval Tempo Let 65
+    ENDIF
+    IF $Tempo GT $InitTemp
+      AddToLogFile "Starting PreHeat for Dissociation."
+      _SetTemp 1 $Tempo
+    ENDIF
+  ENDIF
+  GVAL tmpGCount Dec
+ENDIF
+
+(5-8-1)[WashTips]
+Sval STR1 Let !TE(WashContainerAlias)
+Gval Tempo Let !10(NumberOfIntipMixes)
+Call TipWashRoutine
+
+(5-9-1)[Loop WhileBeadCapture]
+Amove Z 0
+Amove P 0
+Org Z W
+Org P W
+ClearTipVolume
+ClearTipWellVolume
+GVAL tmpGCount Inc
+If $tmpGCount LE $SMPL2Do
+  GoBack WhileBeadCapture
+EndIf
+
+(5-10-1)[FinalTempInc]
+GoHome
+RunMessage "Waiting to Reach Dissociate Temperature..."
+AddToLogfile "Waiting to Reach Dissociate Temperature..."
+;*** IncTempWait ***
+_AlarmLevel 1.5
+;WaitLoop
+WaitSec  1
+_ChkAlarm  1
+IfGoto NE 0 ;WaitLoop
+RunMessage "Reached, Incubating to Dissociate Complex"
+AddToLogfile "Reached, Incubating to Dissociate Complex"
+StartWatch 3
+;EluteWait
+WaitSec 1
+PassTime 3
+IfGoto GE $BeadRemTime ;Exit
+Goto ;EluteWait
+;Exit
+RunMessage "Finished Complex Dissociation, Lowering Temperature"
+AddTologfile "Finished Complex Dissociation, Lowering Temperature"
+
+(5-10-2)[LowerTemp]
+_SetTemp 1 $InitTemp
+
+(5-10-3)[Wait4Cool]
+Gval Tempo Let 50
+Gval Tempo Sub $InitTemp
+_AlarmLevel $Tempo
+;WaitLoop
+WaitSec  1
+_ChkAlarm  1
+IfGoto NE 0 ;WaitLoop
+
+(5-11-1)[InitiateCounter]
+GVAL tmpGCount Let 1
+
+(5-12-1)[WhileBeadRemoval]
+RunMessage "Removing Beads, Row" $tmpGCount
+AddToLogfile "Removing Beads, Row" $tmpGCount
+
+(5-12-2)[PreAsp]
+Amove P 2000 W
+
+(5-13-1)[GoRegenerering]
+MoveTo Regenerering $tmpGCount
+
+(5-13-2)[Action Z]
+ActionZ !#Z_SPEED_H(Speed)
+
+(5-13-3)[PreMixing]
+Gval TEMPO Let @WellVolume
+Gval TEMPO Mul !0.8(Vol%2Mix)
+IF $TEMPO GT $BeadMixVol
+   Gval TEMPO Let $BeadMixVol
+EndIf
+Do !10(Mixes)
+  WaitMsec #MIX_DELAY1
+  LiqIn $TEMPO #P_SPEED_H
+  WaitMsec #MIX_DELAY2
+  LiqOut $TEMPO #P_SPEED_H
+LOOP
+
+(5-13-4)[GoBottomL]
+ActionZ   #Z_SPEED_H
+rScanZ    #DEL_SCAN_Z  #Z_SPEED_LL
+DelMove  Z !#Z_DELUP_L(Moveup)  W
+
+(5-14-1)[Collect1]
+Gval TEMPO Let !@WellVolume(VolumeInWell)
+Gval TEMPO1 Let #V_MAG_PASS
+Amove M #BF_MAG_H
+LiqIn $TEMPO #P_SPEED_L
+WaitMsec 250
+ActionZ !#Z_SPEED_H(Speed)
+LiqIn $TEMPO1 #P_SPEED_M
+WaitSec !1(HoldAtMagnet)
+LiqOut $TEMPO1 #P_SPEED_L
+LiqOut $TEMPO #P_SPEED_M
+
+(5-14-2)[ReMix]
+Gval TEMPO Let !@WellVolume(VolumeInWell)
+Gval TEMPO Mul !0.9(Vol%2Mix)
+IF $TEMPO GT 30
+   Gval TEMPO Let 30
+EndIf
+Do !5(Mixes)
+  WaitMsec #MIX_DELAY1
+  LiqIn $Tempo #P_SPEED_M
+  WaitMsec #MIX_DELAY2
+  LiqOut $Tempo #P_SPEED_H
+LOOP
+Amove M 0
+
+(5-14-3)[GoBottomL]
+ActionZ   #Z_SPEED_H
+rScanZ    #DEL_SCAN_Z  #Z_SPEED_LL
+DelMove  Z !#Z_DELUP_L(Moveup)  W
+
+(5-14-4)[Collect2]
+Gval TEMPO Let !@WellVolume(VolumeInWell)
+Gval TEMPO1 Let $TEMPO
+Gval TEMPO Mul 0.9
+Gval TEMPO1 Sub $TEMPO
+Amove M #BF_MAG_H
+LiqIn $TEMPO #P_SPEED_M
+WaitMsec 250
+ActionZ #Z_SPEED_H
+rScanZ #DEL_SCAN_Z  #Z_SPEED_LL
+DelMove Z !#Z_DELUP_L(Moveup)  W
+LiqIn $TEMPO1 #P_SPEED_L
+DelMove Z 100 #Z_SPEED_L
+LiqIn $XtraDisp #P_SPEED_L
+ DO 10
+  DelMove Z -20 #Z_SPEED_H
+  WaitMsec 50
+LOOP
+ActionZ #Z_SPEED_H
+LiqIn #V_MAG_PASS #P_SPEED_M
+WaitSec 1
+LiqOut #V_MAG_PASS #P_SPEED_LL
+LiqOut $TEMPO #P_SPEED_L
+LiqOut $TEMPO1 #P_SPEED_L
+Rmove Z -400
+LiqOut $XtraDisp #P_SPEED_H
+Amove M 0 W
+Rmove P $PreAirDisp
+Amove Z 0 W
+Rmove P $PreAirAsp
+Org Z W
+Org M W
+
+(5-15-1)[ReturnBeads]
+Gval TEMPO Let !$BEADReturnVol(Vol2Aspirate)
+MoveTo TE
+ActionZ  #Z_SPEED_H
+LiqInWell $TEMPO #P_SPEED_H
+MoveTo Beads
+StandbyZ #Z_SPEED_H
+Gval TEMPO1 Let $TEMPO
+Gval TEMPO1 Add 15
+IfGoto LT #V_MAG_PASS ;mixup
+Gval TEMPO1 Let #V_MAG_PASS
+Gval TEMPO1 Sub 2
+;mixup
+LiqIn #V_MAG_PASS #P_SPEED_H
+Do !20(Mixes2StirUp)
+  WaitMsec #MIX_DELAY2
+  LiqOut   $TEMPO1   #P_SPEED_H
+  WaitMsec #MIX_DELAY1
+  LiqIn    $TEMPO1   #P_SPEED_H
+LOOP
+LiqOut #V_MAG_PASS #P_SPEED_L
+ActionZ #Z_SPEED_H
+LiqOutAll #P_SPEED_L
+Rmove P $PreAirDisp
+Amove Z 0 W
+Org Z W
+Rmove P $PreAirAsp
+
+(5-16-1)[WashTips]
+Sval STR1 Let !TE(WashContainerAlias)
+Gval Tempo Let !10(NumberOfIntipMixes)
+Call TipWashRoutine
+
+(5-17-1)[Loop WhileBeadRemoval]
+GVal tmpGCount INC
+If $tmpGCount LE $SMPL2Do
+  GoBack WhileBeadRemoval
+EndIf
+
+(6-1-1)[GoHome]
+GoHome
+
+(6-2-1)[GoForward]
+GoForward TipDiscard
+
+(6-3-1)[TipDiscard]
+RunMessage "Dropping Tips"
+;DustTip
+ReturnTip
+Gval ENDING Let @SECONDCOUNT
+Gval ENDING Sub $STARTING
+AddToLogFile "Finished, Runtime Was " $ENDING "Seconds"
+RunMessage "Finished, Runtime Was " $ENDING "Seconds"
+
+(6-3-2)[GoHome]
+GoHome
+
+(6-3-3)[Org All]
+Org  Z W
+Org  M W
+Org  X W
+Org  Y W
+Org  P W
+
+(7-1-1)[* SubRoutines *]
+;Just in case...
+END
+
+(7-2-1)[WashRoutine]
+RunMessage "WashRoutine Number " $NumberOfWashes
+AddToLogfile "WashRoutine Number " $NumberOfWashes
+
+(7-3-1)[GoWash]
+MoveTo $STR1
+
+(7-3-2)[Action Z]
+ActionZ !#Z_SPEED_H(Speed)
+
+(7-3-3)[AspWASH]
+LiqInWell $WASHvol #P_SPEED_H
+
+(7-4-1)[GoDrain]
+MoveTo DRAIN 1
+ActionZ #Z_SPEED_H
+
+(7-4-2)[InTipMixing]
+Do !$TEMPO1(Mixes2StirUp)
+  WaitMsec #MIX_DELAY1
+  LiqIn #V_MAG_PASS #P_SPEED_H
+  WaitMsec #MIX_DELAY2
+  LiqOut #V_MAG_PASS #P_SPEED_H
+LOOP
+
+(7-4-3)[MagDownM]
+Amove M #BF_MAG_M
+
+(7-4-4)[DispBeadSep]
+LiqIn #V_MAG_PASS #P_SPEED_LL
+WaitSec !2(MagDelay)
+LiqOutAll !#P_SPEED_LL(SepSpeed)
+WaitMsec 500
+LiqOut @TipVolume #P_SPEED_L
+WaitSec 1
+Rmove P $PreAirDisp
+
+(7-4-5)[TipTouchAndAsp]
+SideY% -100 #Y_SPEED_H
+Amove Z 0 W
+Org Z
+Rmove P $PreAirAsp
+
+(7-4-6)[MagUp]
+Amove M 0
+Org M
+
+(7-5-1)[WashRoutineEnd]
+AddToLogFile "Wash Done."
+Return
+
+(7-6-1)[****************]
+
+
+(7-7-1)[MixRoutine]
+
+
+(7-8-1)[Init Counter]
+GVal tmpGCount Let 1
+
+(7-9-1)[WhileMixes]
+;WhileLoopLabel
+If $MixCount EQ 1
+   Gval MixStart New
+   Gval MixStart Let @SECONDCOUNT
+EndIf
+
+(7-10-1)[PreAsp]
+Amove P !2000(Pulses)
+
+(7-11-1)[GoSamples]
+MoveTo Samples $tmpGCount
+
+(7-11-2)[Action Z]
+ActionZ !#Z_SPEED_H(Speed)
+
+(7-11-3)[BindMix]
+Gval TEMPO Let !@WellVolume(TotVolInWell)
+Gval TEMPO Mul !0.7(Vol%2Mix)
+IF $TEMPO GT $BeadMixVol
+   Gval TEMPO Let $BeadMixVol
+EndIf
+Do !7(Mixes)
+  WaitMsec #MIX_DELAY1
+  LiqIn $TEMPO #P_SPEED_M
+  WaitMsec #MIX_DELAY2
+  LiqOut $TEMPO #P_SPEED_H
+LOOP
+LiqIn $TEMPO #P_SPEED_M
+LiqOut $TEMPO !#P_SPEED_LL(CleanTipSpeed)
+
+(7-11-4)[EmptyTip]
+Down% 70 #Z_SPEED_H
+WaitSec !1(Time2Wait)
+Rmove P $PreAirDisp
+Down% 10 #Z_SPEED_H
+Sidey% 100 #Y_SPEED_H
+Sidey% -100 #Y_SPEED_H
+WaitMsec !250(TipTouchWait)
+Sidey% 0 #Y_SPEED_H
+Amove Z 0 W
+Org Z
+Rmove P $PreAirAsp
+
+(7-12-1)[Loop WhileMixes]
+GVal tmpGCount INC
+TestCondition $tmpGCount LE $SMPL2do
+IfGoto LE 0 ;Exit
+GoBack WhileMixes
+;Exit
+If $MixCount EQ 1
+;  Time for One Mix is OneMix 
+   Gval OneMix New
+   Gval OneMix Let @SECONDCOUNT
+   Gval OneMix Sub $MixStart
+   AddToLogfile "One Full BindMix Takes" $OneMix "Seconds."
+;  Time Between Mixes is BindMixWait
+;  Total Time for One Mix and Pause is Time2Mix 
+   Gval Time2Mix New
+   Gval Time2Mix Let $OneMix 
+   Gval Time2Mix Add $BindMixWait
+   AddToLogfile "Time for one mix and pause is" $Time2Mix
+;  Total BindTime is BeadIncTime
+;   We have already passed some time....
+   Gval TimeLeft New
+   Gval TimeLeft Let $BeadIncTime
+   PassTime 1
+   Gval Tempo Let @Result
+   Gval TimeLeft Sub $Tempo
+   AddToLogfile "Time already passed is" $Tempo
+   AddToLogfile "Time left to hybridize is" $TimeLeft
+;  Number of Mixes to do is NumberOfMixes
+   Gval NumberOfMixes New
+   Gval NumberOfMixes Let $TimeLeft 
+   Gval NumberOfMixes \ $Time2Mix
+   AddToLogfile "NumberOfMixes possible is" $NumberOfMixes
+   AddToLogfile "Time left is " $TimeLeft 
+EndIf
+GoHome
+
+(7-13-1)[MixRoutineEnd]
+Return
+
+(7-14-1)[****************]
+
+
+(7-15-1)[TipWashRoutine]
+RunMessage "Washing Tip"
+AddToLogfile "Washing Tip"
+
+(7-16-1)[GoWash]
+MoveTo $STR1
+
+(7-16-2)[Action Z]
+ActionZ !#Z_SPEED_H(Speed)
+
+(7-16-3)[AspWASH]
+LiqInWell $WASHvol #P_SPEED_H
+
+(7-17-1)[GoDrain]
+MoveTo DRAIN 1
+ActionZ #Z_SPEED_H
+
+(7-17-2)[InTipMixing]
+Do  $Tempo
+  WaitMsec #MIX_DELAY1
+  LiqIn #V_MAG_PASS #P_SPEED_H
+  WaitMsec #MIX_DELAY2
+  LiqOut #V_MAG_PASS #P_SPEED_H
+LOOP
+
+(7-17-3)[DispWash]
+LiqIn #V_MAG_PASS #P_SPEED_M
+LiqOutAll !#P_SPEED_L(SepSpeed)
+LiqOut @TipVolume #P_SPEED_L
+Rmove P $PreAirDisp
+
+(7-17-4)[TipTouchAndAsp]
+SideY% -100 #Y_SPEED_H
+Amove Z 0 W
+Org Z
+Rmove P $PreAirAsp
+
+(7-18-1)[TipWashRoutineEnd]
+Return
+
+(7-19-1)[****************]
+
+
+(7-20-1)[Examples]
+
+
+(7-21-1)[WashBeads]
+Sval STR1 Let !TE(WashContainerAlias)
+Gval Tempo Let  !1(Times2Wash) 
+Gval Tempo1 Let !10(InTipMixes)
+For NumberOfWashes 1 $Tempo 1
+   Call WashRoutine
+EndFor
+
+(7-22-1)[WashTips]
+Sval STR1 Let !TE(WashContainerAlias)
+Gval Tempo Let !10(NumberOfIntipMixes)
+Call TipWashRoutine
+

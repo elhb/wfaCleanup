@@ -1,0 +1,233 @@
+(1-1-1)[Instrument]
+Verbose 7
+Speed X #X_SPEED
+Speed Y #Y_SPEED
+Speed Z #Z_SPEED
+Speed P #P_SPEED
+Speed M #M_SPEED
+LoadVPTable !0(Volume2Pulse Table)
+SetTrashPosition Trash 1 1
+SelectTip Standard
+Verbose !0(Default Debug Level)
+
+(1-1-2)[CheckInputMax8]
+; *****************************************************************************
+; This cell is corrected for starting row instead of starting row offset.
+; *****************************************************************************
+GVal MaxSample New
+  GVal MaxSample Let 8
+;CheckValues
+Val $SMPL2do
+IfGoto LE 0 ;sample_err
+Val $SMPL2do
+IfGoto GT $MaxSample ;sample_err
+Goto ;CheckRow
+;sample_err
+Beginuserbox "Correct Number of Sample Rows"
+  String "Rows must be 1 to 8 ?" SMPL2do $SMPL2do m
+EndUserbox
+Goto ;CheckValues
+;CheckRow
+Val $StartRow
+IfGoto LT 1 ;row_err
+Val $StartRow
+IfGoto GT $MaxSample ;row_err
+Goto ;CheckPos
+;row_err
+BeginUserBox "Correct Starting Row"
+  String "Starting Row must be 1 to 8 ?" StartRow $StartRow m
+EndUserBox
+Goto ;CheckValues
+;CheckPos
+Gval Tempo New
+Gval Tempo Let $SMPL2do
+Gval Tempo Add $StartRow
+Gval Tempo Dec
+Val $Tempo
+IfGoto GT $MaxSample ;pos_err
+Goto ;exit
+;pos_err
+BeginUserBox "Sample and Row Error"
+  Label  "Please reenter number of samples or start row."
+  Label  "They must Add up to 8"
+  Label  ""
+  String "Number of Sample Rows ?" SMPL2do  $SMPL2do m
+  Label  ""
+  String "Starting Row ?" StartRow $StartRow m
+EndUserBox
+Goto ;CheckValues
+;exit
+
+(1-1-3)[InitVariables]
+; *********************************
+; *** CREATE GENERAL VARIABLES ***
+; *********************************
+Gval TEMPO New
+Gval TEMPO1 New
+Gval TEMPO2 New
+Gval TEMPO3 New
+Gval STARTING New
+Gval ENDING New
+Sval STR1 New
+Sval STR2 New
+Sval STR3 New
+; **************************************
+; *** MAP SAMPLES TO INTERNAL SYSTEM ***
+; **************************************
+  GVAL tmpGCount New
+  GVAL tmpGCount Let 1
+; ***************************************
+; *** CREATE INCUBATION MIX INTERVALS ***
+; ***************************************
+Gval MIXcount New
+Gval TotIncTime New
+Gval MIXtime1 New
+Gval MIXtime2 New
+Gval MIXtime3 New
+; **************************
+; *** SET PREAIR VOLUMES ***
+; **************************
+Gval PreAirAsp New
+Gval PreAirDisp New
+Micro2Pulse 10
+Gval PreAirAsp Let @Result
+Gval PreAirDisp Let $PreAirAsp
+Gval PreAirDisp Mul -1
+; **************************
+; *** ADJUST MIN->SEC ***
+; **************************
+Gval BeadIncTime Mul 60
+; ************************
+; *** SET WASH VOLUMES ***
+; ************************
+Gval DRAINxtra New
+  Gval DRAINxtra Let !10(DrainXtraDispVol)
+Gval TIPWASHvol New
+  Gval TIPWASHvol Let !45(InTipMixVolume)
+Gval WASHvol New
+  Gval WASHvol Let !45(Wash Volume)
+Gval BeadMixVol New
+  Gval BeadMixVol Let !100(MaxMixVol to Protect Plunger)
+Gval XTRAdisp New
+  Gval XTRAdisp Let !10(General Xtra Disp Volume)
+; **********************************
+; ***        ADD VOLUMES         ***
+; **********************************
+; ************************
+
+; *** XtraBeadvol ***
+; ************************
+; This is the extra beadvolume for each tube.
+Gval XtraBeadvol New
+   Gval XtraBeadvol Let !5(XtraBeadVol)
+
+; *** XtraTubeVol ***
+; ************************
+; This is the extra deadvolume for each tube.
+Gval XtraTubeVol New
+   Gval XtraTubeVol Let !5(XtraTubeVol)
+
+; ************************
+; *** BeadBuffvol ***
+; ************************
+; This is the volume of buffer, with beads,
+; to add to the samples.
+Gval BeadBuffvol New 
+  Gval Tempo Let $BindBUFconc
+  Gval Tempo Dec
+  Gval BeadBuffvol Let $SAMPLEvol
+  Gval BeadBuffvol / $Tempo
+; ************************
+; *** BindBUFvol ***
+; ************************
+; This is the volume of BW to add to each tube.
+ Gval BindBUFvol New
+  Gval Tempo Let $XtraBeadvol 
+  Gval Tempo Mul $BeadBuffvol
+  Gval Tempo \ $BeadVol
+  Gval BindBUFvol Let $BeadBuffvol
+  Gval BindBUFvol Mul $SMPL2do
+  Gval BindBUFvol Add $Tempo
+; ************************
+; *** TotBeadvol *** 
+; ************************
+; This is the volume of beads in each tube.
+ Gval TotBeadvol New 
+  Gval Tempo Let $XtraBeadvol 
+  Gval TotBeadvol Let $BEADvol
+  Gval TotBeadvol Mul $SMPL2do
+  Gval TotBeadvol Add $Tempo
+
+; ****************************************
+; ***   NaOH Vol                          *** 
+; *** Adjusted for second elution ***
+; *** i.e. added second volume   ***
+; ****************************************
+Gval TotNaOHVol New
+ Gval TotNaOHVol Let $ELUTEvol
+ Gval TotNaOHVol Add $ELUTE2vol
+ Gval TotNaOHVol Mul $SMPL2do
+ Gval TotNaOHVol Mul 12
+ Gval TotNaOHVol Add 1500
+ Gval TotNaOHVol \ 100
+ Gval TotNaOHVol Div 10
+If $TotNaOHVol LT 3
+  Gval TotNaOHVol Let 3
+EndIf
+; ************************
+; ***      BW Vol      *** 
+; ************************
+Gval BWBulkVol New
+Gval BWBulkVol Let $BindBUFvol
+Gval BWBulkVol Mul 12
+Gval BWBulkVol Add 1500
+ Gval BWBulkVol \ 100
+ Gval BWBulkVol Div 10
+If $BWBulkVol LT 3
+   Gval BWBulkVol Let 3
+EndIf
+
+; ************************
+; *** TotPCRvol *** 
+; ************************
+ Gval TotPCRvol New 
+ Gval TotPCRvol Let $HClvol
+ Gval TotPCRvol Mul $SMPL2do
+ Gval TotPCRvol Add 5
+
+; ************************
+; ***      AB Vol    *** 
+; ************************
+ Gval ABTotVol new
+ Gval ABTotVol Let 3
+
+; ***  BeadReturnVol   ***
+; ************************
+Gval BEADReturnVol New
+  Gval BEADReturnVol Let !30(BEADReturnVol)
+
+; ************************
+; *** TotBeadReturnVol ***
+; ************************
+; This is the volume of TE in each tube
+; before resetting.
+Gval TotBeadReturnVol New
+  Gval TotBeadReturnVol Let $BeadReturnVol
+  Gval TotBeadReturnVol Mul $SMPL2do
+; To avoid accumulating the extra volume,
+;  we need to add the volume left behind
+;  due to the diluted extra bead volume.
+  Gval Tempo Let 5
+  Gval Tempo Mul $BeadBuffvol
+  Gval Tempo \ $BeadVol
+  Gval TotBeadReturnVol Add $Tempo
+
+; ************************
+; ***      RG Vol    Releasebuffer  *** 
+; ************************
+ Gval RGTotVol new
+ Gval RGTotVol Let 3
+
+
+; end of story
+

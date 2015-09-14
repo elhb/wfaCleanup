@@ -1,0 +1,6 @@
+[Title]
+Title=WFA
+[WFAcleanup]
+Title=WFAcleanup
+ProtocolHolder=..\Protocols\WfaCleanup\wfaCleanup.HLD
+DescriptionFile=..\Protocols\WfaCleanup\wfaCleanup.RTF
